@@ -1,36 +1,130 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Website Summarizer & Legitimacy Checker
 
-## Getting Started
+A Next.js API that summarizes any website URL and checks if it's legitimate (no pornographic, illicit, or harmful content) using ExaJS for summarization and Groq AI for content moderation.
 
-First, run the development server:
+## Features
+
+- 📝 Summarizes website content using ExaJS
+- ✅ Checks website legitimacy using Groq AI (Llama 3.1)
+- 🔒 TypeScript for type safety
+- 🚀 Built with Next.js 16
+
+## Prerequisites
+
+- Node.js 18+ installed
+- API keys from:
+  - [Exa AI](https://exa.ai/) - for website summarization
+  - [Groq](https://groq.com/) - for LLM-based legitimacy checking
+
+## Setup Instructions
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure Environment Variables
+
+Create a `.env.local` file in the root directory:
+
+```bash
+EXA_API_KEY=your_exa_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+**Get your API keys:**
+- Exa API Key: Sign up at [https://exa.ai/](https://exa.ai/) and get your API key from the dashboard
+- Groq API Key: Sign up at [https://groq.com/](https://groq.com/) and get your API key from the console
+
+### 3. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The server will start on [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Endpoint
 
-## Learn More
+**POST** `/api/summarize`
 
-To learn more about Next.js, take a look at the following resources:
+### Request
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+curl -X POST http://localhost:3000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Response
 
-## Deploy on Vercel
+```json
+{
+  "pass": true
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `pass: true` - Website is legitimate (no inappropriate content)
+- `pass: false` - Website contains pornographic, illicit, or harmful content
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Example with JavaScript/TypeScript
+
+```typescript
+const response = await fetch('http://localhost:3000/api/summarize', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    url: 'https://example.com'
+  })
+});
+
+const data = await response.json();
+console.log(data); // { pass: true } or { pass: false }
+```
+
+## Project Structure
+
+```
+website_summeriser/
+├── app/
+│   ├── api/
+│   │   └── summarize/
+│   │       └── route.ts    # API route for summarization
+│   ├── layout.tsx
+│   └── page.tsx
+├── .env.local              # Environment variables (create this)
+├── package.json
+└── tsconfig.json
+```
+
+## Available Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+## How It Works
+
+1. **Summarization**: The API receives a URL and uses ExaJS to fetch and summarize the website content
+2. **Legitimacy Check**: The summary is sent to Groq AI (Llama 3.1 70B) to analyze if the website contains inappropriate content
+3. **Response**: Returns `{ pass: boolean }` indicating if the website is legitimate
+
+## Troubleshooting
+
+- **"EXA_API_KEY environment variable is not set"**: Make sure you've created `.env.local` with your Exa API key
+- **"GROQ_API_KEY environment variable is not set"**: Make sure you've created `.env.local` with your Groq API key
+- **"No content found for the provided URL"**: The URL might be inaccessible or blocked by Exa
+- **Port already in use**: Change the port with `npm run dev -- -p 3001`
+
+## Tech Stack
+
+- **Next.js 16** - React framework
+- **TypeScript** - Type safety
+- **ExaJS** - Website summarization
+- **Groq SDK** - LLM for content moderation
