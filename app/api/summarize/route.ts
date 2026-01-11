@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Exa from 'exa-js';
 import Groq from 'groq-sdk';
+import { chromium } from 'playwright';
 
 // TypeScript interfaces
 interface SummarizeRequest {
@@ -10,6 +11,8 @@ interface SummarizeRequest {
 interface SummarizeResponse {
   pass: boolean;
   metaTags?: string; // Comma-separated keywords for categorization
+  screenshot?: string; // Base64 encoded screenshot
+  screenshotError?: string; // Error message if screenshot failed
 }
 
 interface GroqModerationResponse {
@@ -201,10 +204,90 @@ export async function POST(request: NextRequest) {
       metaTags = uniqueWords.join(', ');
     }
 
-    // Return the result with meta tags
+    // Capture screenshot using Playwright - ONLY if website is legitimate
+    let screenshotBase64 = '';
+    if (isLegit) {
+      let browser: any = null;
+      try {
+        console.log('Starting screenshot capture for legitimate website:', url);
+        browser = await chromium.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'], // Add args for better compatibility
+        });
+        
+        const context = await browser.newContext({
+          viewport: { width: 412, height: 844 },
+        });
+        
+        const page = await context.newPage();
+        
+        // Navigate to the URL and wait for page to load
+        await page.goto(url, {
+          waitUntil: 'domcontentloaded', // Changed from networkidle to be more lenient
+          timeout: 30000,
+        });
+        
+        // Wait for any images or critical content
+        try {
+          await page.waitForLoadState('networkidle', { timeout: 5000 });
+        } catch (e) {
+          console.log('Network idle timeout, continuing anyway');
+        }
+        
+        // Wait a bit for any dynamic content
+        await page.waitForTimeout(2000);
+        
+        // Take screenshot
+        const screenshotBuffer = await page.screenshot({
+          type: 'png',
+          fullPage: false, // Only capture viewport
+        });
+        
+        // Convert to base64 - handle both Buffer and Uint8Array
+        if (Buffer.isBuffer(screenshotBuffer)) {
+          screenshotBase64 = screenshotBuffer.toString('base64');
+        } else if (screenshotBuffer instanceof Uint8Array) {
+          screenshotBase64 = Buffer.from(screenshotBuffer).toString('base64');
+        } else {
+          // Convert any other type to Buffer
+          screenshotBase64 = Buffer.from(screenshotBuffer as any).toString('base64');
+        }
+        console.log('Screenshot captured successfully, length:', screenshotBase64.length);
+        
+        await page.close();
+        await context.close();
+        await browser.close();
+        browser = null;
+      } catch (screenshotError: any) {
+        console.error('Error capturing screenshot:', screenshotError);
+        console.error('Screenshot error stack:', screenshotError.stack);
+        console.error('Screenshot error message:', screenshotError.message);
+        // Continue without screenshot if it fails
+        screenshotBase64 = '';
+        // Store error message for debugging
+        const errorMsg = screenshotError.message || 'Unknown error';
+        if (errorMsg.includes('libnspr4.so') || errorMsg.includes('shared libraries')) {
+          screenshotBase64 = 'MISSING_DEPS'; // Special marker for missing dependencies
+        }
+      } finally {
+        if (browser) {
+          try {
+            await browser.close();
+          } catch (e) {
+            console.error('Error closing browser:', e);
+          }
+        }
+      }
+    } else {
+      console.log('Screenshot skipped - website is not legitimate');
+    }
+
+    // Return the result with meta tags and screenshot
     const response: SummarizeResponse = {
       pass: isLegit,
       metaTags: metaTags || undefined,
+      screenshot: screenshotBase64 && screenshotBase64 !== 'MISSING_DEPS' ? `data:image/png;base64,${screenshotBase64}` : undefined,
+      screenshotError: screenshotBase64 === 'MISSING_DEPS' ? 'Playwright requires system libraries. Run: sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2' : undefined,
     };
 
     return NextResponse.json(response);

@@ -6,6 +6,8 @@ interface ApiResponse {
   pass?: boolean;
   error?: string;
   metaTags?: string; // Comma-separated keywords
+  screenshot?: string; // Base64 encoded screenshot
+  screenshotError?: string; // Error message if screenshot failed
 }
 
 export default function Home() {
@@ -28,6 +30,7 @@ export default function Home() {
       });
 
       const data: ApiResponse = await response.json();
+      console.log('API Response:', { ...data, screenshot: data.screenshot ? 'Screenshot present' : 'No screenshot' });
       setResult(data);
     } catch (error) {
       setResult({
@@ -72,7 +75,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading || !url}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors"
             >
               {loading ? 'Checking...' : 'Check Website'}
             </button>
@@ -118,7 +121,7 @@ export default function Home() {
                   {result.metaTags && (
                     <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
                       <h3 className="font-semibold text-lg mb-4 text-black dark:text-zinc-50">
-                        Meta Tags (Keywords)
+                        Meta Tags
                       </h3>
                       <div>
                         <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
@@ -134,12 +137,56 @@ export default function Home() {
                             </span>
                           ))}
                         </div>
-                        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400 italic">
-                          Comma-separated keywords for database storage
-                        </p>
                       </div>
                     </div>
                   )}
+
+                  {/* Website Screenshot */}
+                  <div className="p-4 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                    <h3 className="font-semibold text-lg mb-4 text-black dark:text-zinc-50">
+                      Website Screenshot
+                    </h3>
+                    {result.screenshot ? (
+                      <>
+                        <div className="rounded-lg overflow-hidden border border-zinc-300 dark:border-zinc-700 shadow-lg bg-white dark:bg-black">
+                          <img
+                            src={result.screenshot}
+                            alt="Website screenshot"
+                            className="w-full h-auto block"
+                            style={{ maxHeight: '600px', objectFit: 'contain' }}
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 italic">
+                          Viewport screenshot (412x844) rendered with Playwright
+                        </p>
+                      </>
+                    ) : (
+                      <div className="p-8 text-center border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                        <p className="text-zinc-600 dark:text-zinc-400 font-medium mb-2">
+                          Screenshot not available
+                        </p>
+                        {result.screenshotError ? (
+                          <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+                            <p className="text-xs text-red-700 dark:text-red-400 font-medium mb-1">
+                              Installation Required:
+                            </p>
+                            <p className="text-xs text-red-600 dark:text-red-300 text-left font-mono bg-red-100 dark:bg-red-900/30 p-2 rounded">
+                              {result.screenshotError}
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                              The screenshot may have failed to capture. Check server console/terminal for error details.
+                            </p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                              Common issues: Page load timeout, website blocking automation, or Playwright installation issue.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : null}
             </div>
